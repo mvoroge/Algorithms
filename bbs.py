@@ -1,22 +1,41 @@
 import random
-from time import time
+from time import time, sleep
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int
 
+import matplotlib.pyplot as plt
 
-def rand_int(start, end, seed=None):
-    a = 32310901
-    b = 1729
-    if seed is None:
-        seed = int(str(time()).replace('.', ''))
-    m = end - start
-    return (a * seed + b) % m
+
+class GPRCH(object):
+    def __init__(self, min, max, seed=None):
+        self.min = min
+        self.max = max
+        if seed is None:
+            self.seed = int(str(time()).replace('.', ''))
+        else:
+            self.seed = seed
+        self.generator = self.rand_int_generator()
+
+    def rand_int_generator(self):
+        a = 32310901
+        b = 1729
+        rOld = self.seed
+        m = self.max - self.min
+        while True:
+            rNew = (a * rOld + b) % m
+            yield rNew
+            rOld = rNew
+
+    def get(self):
+        return self.generator.__next__()
 
 
 class BlumBlumShub(object):
-    def __init__(self, length):
+    def __init__(self, length, seed=None):
         self.length = length
+        self.seed = seed
+        self.gpsch = GPRCH(1, 100000, seed)
 
         # self.primes = e(1000)
 
@@ -50,7 +69,7 @@ class BlumBlumShub(object):
     def gen_primes(self):
         out_primes = []
         while len(out_primes) < 2:
-            curr_prime = rand_int(1, 100000)
+            curr_prime = self.gpsch.get()
             if curr_prime % 4 == 3:
                 if self.is_prime(curr_prime):
                     out_primes.append(curr_prime)
@@ -58,7 +77,8 @@ class BlumBlumShub(object):
 
     def coprime(self, n):
         while True:
-            ans = random.randint(1, n - 1)
+            temp_gspch = GPRCH(1, n - 1, self.seed)
+            ans = temp_gspch.get()
             if self.gcd(ans, n) == 1:
                 return ans
 
@@ -78,15 +98,19 @@ class BlumBlumShub(object):
         return self.random_generator()
 
     def get_random_int(self):
-        bit_arr = self.random_generator()
-        return bit_arr, ba2int(bit_arr)
+        # bit_arr = self.random_generator()
+        # return bit_arr, ba2int(bit_arr)
+        return ba2int(self.random_generator())
 
 
 if __name__ == '__main__':
+    rand_generator = GPRCH(1, 1000)
+    xs = [rand_generator.get() for _ in range(100)]
+
     bbs_generator = BlumBlumShub(10)
-    # for _ in range(5):
-    print(bbs_generator.get_random_int())
+    xs_bbs = [bbs_generator.get_random_int() for _ in range(100)]
 
-    # for _ in range(5):
-    #     print(bbs_generator.get_random_bits())
-
+    plt.plot(xs, 'ro', label='ГПСЧ')
+    plt.plot(xs_bbs, 'bo', label='bbs')
+    plt.legend()
+    plt.show()
